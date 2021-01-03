@@ -8,25 +8,24 @@
  *  
  *  @file    nrf5x_i2cSimu.c
  *  @author  KitSprout
- *  @date    Mar-2020
  *  @brief   
  * 
  */
 
 /* Includes --------------------------------------------------------------------------------*/
 #include "nrf5x_i2cSimu.h"
-//#include "kLogger.h"
 
 /* Define ----------------------------------------------------------------------------------*/
 /* Macro -----------------------------------------------------------------------------------*/
 
-#define I2CxS_SCL_L()               __GPIO_RST(NRF_GPIO, pSimuI2c->PinSCL)
-#define I2CxS_SCL_H()               __GPIO_SET(NRF_GPIO, pSimuI2c->PinSCL)
-#define I2CxS_SCL_READ()            (__GPIO_READ(NRF_GPIO, pSimuI2c->PinSCL) == SET)
+#define ENABLE_ACK_CHECK                                (1U)
+#define I2CxS_SCL_L()                                   __GPIO_RST(pSimuI2c->PortSCL, pSimuI2c->PinSCL)
+#define I2CxS_SCL_H()                                   __GPIO_SET(pSimuI2c->PortSCL, pSimuI2c->PinSCL)
+#define I2CxS_SCL_READ()                                (__GPIO_READ(pSimuI2c->PortSCL, pSimuI2c->PinSCL) == SET)
 
-#define I2CxS_SDA_L()               __GPIO_RST(NRF_GPIO, pSimuI2c->PinSDA)
-#define I2CxS_SDA_H()               __GPIO_SET(NRF_GPIO, pSimuI2c->PinSDA)
-#define I2CxS_SDA_READ()            (__GPIO_READ(NRF_GPIO, pSimuI2c->PinSDA) == SET)
+#define I2CxS_SDA_L()                                   __GPIO_RST(pSimuI2c->PortSDA, pSimuI2c->PinSDA)
+#define I2CxS_SDA_H()                                   __GPIO_SET(pSimuI2c->PortSDA, pSimuI2c->PinSDA)
+#define I2CxS_SDA_READ()                                (__GPIO_READ(pSimuI2c->PortSDA, pSimuI2c->PinSDA) == SET)
 
 /* Typedef ---------------------------------------------------------------------------------*/
 /* Variables -------------------------------------------------------------------------------*/
@@ -39,20 +38,20 @@
 void SimuI2C_Config( SimuI2C_InitTypeDef *pSimuI2c )
 {
     nrf_gpio_cfg(
-        pSimuI2c->PinSCL,
+        NRF_GPIO_PIN_MAP(pSimuI2c->PortSCL, pSimuI2c->PinSCL),
         NRF_GPIO_PIN_DIR_OUTPUT,
         NRF_GPIO_PIN_INPUT_CONNECT,
-        NRF_GPIO_PIN_NOPULL,
-        NRF_GPIO_PIN_S0S1,
+        NRF_GPIO_PIN_PULLUP,
+        NRF_GPIO_PIN_S0D1,
         NRF_GPIO_PIN_NOSENSE
     );
 
     nrf_gpio_cfg(
-        pSimuI2c->PinSDA,
+        NRF_GPIO_PIN_MAP(pSimuI2c->PortSDA, pSimuI2c->PinSDA),
         NRF_GPIO_PIN_DIR_OUTPUT,
         NRF_GPIO_PIN_INPUT_CONNECT,
         NRF_GPIO_PIN_PULLUP,
-        NRF_GPIO_PIN_S0S1,
+        NRF_GPIO_PIN_S0D1,
         NRF_GPIO_PIN_NOSENSE
     );
 
@@ -100,7 +99,7 @@ void SimuI2C_Stop( SimuI2C_InitTypeDef *pSimuI2c )
 /**
  *  @brief  SimuI2C_SendACK
  */
-void SimuI2C_SendACK( SimuI2C_InitTypeDef *pSimuI2c, const uint32_t ack )
+void SimuI2C_SendACK( SimuI2C_InitTypeDef *pSimuI2c, uint32_t ack )
 {
     I2CxS_SCL_L();
     if (ack)
@@ -169,8 +168,8 @@ void SimuI2C_SendByte( SimuI2C_InitTypeDef *pSimuI2c, uint8_t sendByte )
  */
 uint8_t SimuI2C_RecvByte( SimuI2C_InitTypeDef *pSimuI2c )
 {
-    uint32_t cnt = 8;
     uint8_t recvByte = 0;
+    uint32_t cnt = 8;
 
     I2CxS_SDA_H();
     while (cnt--)
@@ -193,12 +192,12 @@ uint8_t SimuI2C_RecvByte( SimuI2C_InitTypeDef *pSimuI2c )
 /**
  *  @brief  SimuI2C_SendBytes
  */
-void SimuI2C_SendBytes( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sendBytes, const uint32_t lens )
+void SimuI2C_SendBytes( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sendBytes, uint32_t lens )
 {
-    uint32_t i, cnt;
     uint8_t sendByte;
+    uint32_t cnt;
 
-    for (i = 0; i < lens; i++)
+    while (lens--)
     {
         sendByte = *(sendBytes++);
         cnt = 8;
@@ -226,13 +225,13 @@ void SimuI2C_SendBytes( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sendBytes,
 /**
  *  @brief  SimuI2C_RecvBytes
  */
-void SimuI2C_RecvBytes( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, const uint32_t lens )
+void SimuI2C_RecvBytes( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, uint32_t lens )
 {
-    uint32_t i, cnt;
     uint8_t recvByte;
+    uint32_t cnt;
 
     I2CxS_SDA_H();
-    for (i = 0; i < lens; i++)
+    while (lens--)
     {
         cnt = 8;
         recvByte = 0;
@@ -257,7 +256,7 @@ void SimuI2C_RecvBytes( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, const
 /**
  *  @brief  SimuI2C_BeginTransmission
  */
-uint32_t SimuI2C_BeginTransmission( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t sendbyte )
+uint32_t SimuI2C_BeginTransmission( SimuI2C_InitTypeDef *pSimuI2c, uint8_t sendbyte )
 {
     SimuI2C_Start(pSimuI2c);
     return (SimuI2C_SendByteAck(pSimuI2c, sendbyte) != SIMUI2C_ACK) ? KS_ERROR : KS_OK;
@@ -315,10 +314,10 @@ uint32_t SimuI2C_SendByteAck( SimuI2C_InitTypeDef *pSimuI2c, uint8_t sendByte )
 /**
  *  @brief  SimuI2C_RecvByteAck
  */
-uint8_t SimuI2C_RecvByteAck( SimuI2C_InitTypeDef *pSimuI2c, const uint32_t ack )
+uint8_t SimuI2C_RecvByteAck( SimuI2C_InitTypeDef *pSimuI2c, uint32_t ack )
 {
-    uint32_t cnt = 8;
     uint8_t recvByte = 0;
+    uint32_t cnt = 8;
 
     I2CxS_SDA_H();
     while (cnt--)
@@ -354,13 +353,13 @@ uint8_t SimuI2C_RecvByteAck( SimuI2C_InitTypeDef *pSimuI2c, const uint32_t ack )
 /**
  *  @brief  SimuI2C_SendBytesAck
  */
-uint32_t SimuI2C_SendBytesAck( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sendBytes, const uint32_t lens )
+uint32_t SimuI2C_SendBytesAck( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sendBytes, uint32_t lens )
 {
-    uint32_t i, cnt;
-    uint32_t ack;
     uint8_t sendByte;
+    uint32_t cnt;
+    uint32_t ack;
 
-    for (i = 0; i < lens; i++)
+    while (lens--)
     {
         sendByte = *(sendBytes++);
         cnt = 8;
@@ -399,12 +398,12 @@ uint32_t SimuI2C_SendBytesAck( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t *sen
 /**
  *  @brief  SimuI2C_RecvBytesAck
  */
-void SimuI2C_RecvBytesAck( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, const uint32_t lens )
+void SimuI2C_RecvBytesAck( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, uint32_t lens )
 {
-    uint32_t i, cnt;
     uint8_t recvByte;
+    uint32_t cnt;
 
-    for (i = 0; i < lens; i++)
+    while (lens--)
     {
         I2CxS_SDA_H();
         cnt = 8;
@@ -423,13 +422,13 @@ void SimuI2C_RecvBytesAck( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, co
         }
         I2CxS_SCL_L();
         *(recvBytes++) = recvByte;
-        if (i == (lens - 1))    // last data send NACK
+        if (lens)
         {
-            I2CxS_SDA_H();
+            I2CxS_SDA_L();
         }
         else
         {
-            I2CxS_SDA_L();
+            I2CxS_SDA_H();  // last data send NACK
         }
         SimuI2C_Delay(pSimuI2c);
         I2CxS_SCL_H();
@@ -441,10 +440,9 @@ void SimuI2C_RecvBytesAck( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *recvBytes, co
 /**
  *  @brief  SimuI2C_WriteData
  */
-uint32_t SimuI2C_WriteData( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t writeData )
+uint32_t SimuI2C_WriteData( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t writeData )
 {
     uint8_t address8bit = slaveAddr << 1;
-
 #if 1
 #if ENABLE_ACK_CHECK
     if (SimuI2C_BeginTransmission(pSimuI2c, address8bit | SIMUI2C_WRITE) != KS_OK)
@@ -477,7 +475,7 @@ uint32_t SimuI2C_WriteData( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAd
 /**
  *  @brief  SimuI2C_ReadData
  */
-uint32_t SimuI2C_ReadData( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, uint8_t *readData )
+uint32_t SimuI2C_ReadData( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t *readData )
 {
     uint8_t address8bit = slaveAddr << 1;
 #if 1
@@ -508,7 +506,7 @@ uint32_t SimuI2C_ReadData( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAdd
 /**
  *  @brief  SimuI2C_WriteDatas
  */
-uint32_t SimuI2C_WriteDatas( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t *writeData, const uint32_t lens )
+uint32_t SimuI2C_WriteDatas( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, const uint8_t *writeData, uint32_t lens )
 {
     uint8_t address8bit = slaveAddr << 1;
 #if 1
@@ -547,7 +545,7 @@ uint32_t SimuI2C_WriteDatas( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveA
 /**
  *  @brief  SimuI2C_ReadDatas
  */
-uint32_t SimuI2C_ReadDatas( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, uint8_t *readData, const uint32_t lens )
+uint32_t SimuI2C_ReadDatas( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t *readData, uint32_t lens )
 {
     uint8_t address8bit = slaveAddr << 1;
 #if 1
@@ -589,10 +587,10 @@ uint32_t SimuI2C_ReadDatas( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAd
 /**
  *  @brief  SimuI2C_WriteReg
  */
-uint32_t SimuI2C_WriteReg( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t regAddr, const uint8_t regData )
+uint32_t SimuI2C_WriteReg( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t regAddr, uint8_t regData )
 {
     uint8_t address8bit = slaveAddr << 1;
-#if 1
+#if 0
 #if ENABLE_ACK_CHECK
     if (SimuI2C_BeginTransmission(pSimuI2c, address8bit | SIMUI2C_WRITE) != KS_OK)
     {
@@ -632,10 +630,10 @@ uint32_t SimuI2C_WriteReg( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAdd
 /**
  *  @brief  SimuI2C_ReadReg
  */
-uint32_t SimuI2C_ReadReg( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t regAddr, uint8_t *regData )
+uint32_t SimuI2C_ReadReg( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t regAddr, uint8_t *regData )
 {
     uint8_t address8bit = slaveAddr << 1;
-#if 1
+#if 0
 #if ENABLE_ACK_CHECK
     if (SimuI2C_BeginTransmission(pSimuI2c, address8bit | SIMUI2C_WRITE) != KS_OK)
     {
@@ -671,7 +669,7 @@ uint32_t SimuI2C_ReadReg( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr
     SimuI2C_SendByte(pSimuI2c, address8bit | SIMUI2C_READ);
     SimuI2C_RecvACK(pSimuI2c);
     *regData = SimuI2C_RecvByte(pSimuI2c);
-    SimuI2C_SendACK(pSimuI2c, NACK);
+    SimuI2C_SendACK(pSimuI2c, SIMUI2C_NACK);
     SimuI2C_Stop(pSimuI2c);
 #endif
     return KS_OK;
@@ -680,10 +678,10 @@ uint32_t SimuI2C_ReadReg( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr
 /**
  *  @brief  SimuI2C_WriteRegs
  */
-uint32_t SimuI2C_WriteRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t regAddr, const uint8_t *regData, const uint32_t lens )
+uint32_t SimuI2C_WriteRegs( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t regAddr, const uint8_t *regData, uint32_t lens )
 {
     uint8_t address8bit = slaveAddr << 1;
-#if 1
+#if 0
 #if ENABLE_ACK_CHECK
     if (SimuI2C_BeginTransmission(pSimuI2c, address8bit | SIMUI2C_WRITE) != KS_OK)
     {
@@ -727,10 +725,10 @@ uint32_t SimuI2C_WriteRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAd
 /**
  *  @brief  SimuI2C_ReadRegs
  */
-uint32_t SimuI2C_ReadRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, const uint8_t regAddr, uint8_t *regData, const uint32_t lens )
+uint32_t SimuI2C_ReadRegs( SimuI2C_InitTypeDef *pSimuI2c, uint8_t slaveAddr, uint8_t regAddr, uint8_t *regData, uint32_t lens )
 {
     uint8_t address8bit = slaveAddr << 1;
-#if 1
+#if 0
 #if ENABLE_ACK_CHECK
     if (SimuI2C_BeginTransmission(pSimuI2c, address8bit | SIMUI2C_WRITE) != KS_OK)
     {
@@ -786,8 +784,9 @@ uint32_t SimuI2C_ReadRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAdd
 /**
  *  @brief  SimuI2C_ScanDevice
  */
-uint32_t SimuI2C_ScanDevice( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *devAddress )
+uint32_t SimuI2C_ScanDevice( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *address )
 {
+    uint8_t res[128];
     uint32_t status;
     uint32_t idx = 0;
 
@@ -798,15 +797,23 @@ uint32_t SimuI2C_ScanDevice( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *devAddress 
         SimuI2C_EndTransmission(pSimuI2c);
         if (status == KS_OK)
         {
-            devAddress[idx++] = i;
+            res[idx++] = i;
         }
         else
         {
-            devAddress[i] = 0;
+            res[i] = 0xFF;
         }
     }
 
-#if 0
+    if (address != NULL)
+    {
+        for (uint32_t i = 0; i < 128; i++)
+        {
+            address[i] = res[i];
+        }
+    }
+
+#if 1
     klogc("\n");
     klogc(" >>  i2c device scanner (found %d)\n\n", idx);
     klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
@@ -815,9 +822,9 @@ uint32_t SimuI2C_ScanDevice( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *devAddress 
     {
         if (i % 16 == 0)
         {
-           klogc("\n %02X:", i);
+            klogc("\n %02X:", i);
         }
-        if (i == devAddress[idx])
+        if (i == res[idx])
         {
             idx++;
             klogc(" %02X", i);
@@ -838,25 +845,41 @@ uint32_t SimuI2C_ScanDevice( SimuI2C_InitTypeDef *pSimuI2c, uint8_t *devAddress 
  *  @brief  SimuI2C_ScanRegs
  */
 #define MULTIBYTEREAD    (8U)
-uint32_t SimuI2C_ScanRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAddr, uint8_t *regData )
+uint32_t SimuI2C_ScanRegs( SimuI2C_InitTypeDef *pSimuI2c, uint8_t address, uint8_t *reg )
 {
+    uint8_t res[256];
     uint32_t status;
 
     SimuI2C_EndTransmission(pSimuI2c);
-    status = SimuI2C_BeginTransmission(pSimuI2c, slaveAddr << 1);
+    status = SimuI2C_BeginTransmission(pSimuI2c, address << 1);
     SimuI2C_EndTransmission(pSimuI2c);
 
     if (status == KS_OK)
     {
         for (uint32_t i = 0; i < 256; i = i + MULTIBYTEREAD)
         {
-            SimuI2C_ReadRegs(pSimuI2c, slaveAddr, i, &regData[i], MULTIBYTEREAD);
+            SimuI2C_ReadRegs(pSimuI2c, address, i, &res[i], MULTIBYTEREAD);
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < 256; i++)
+        {
+            res[i] = 0xFF;
         }
     }
 
-#if 0
+    if (reg != NULL)
+    {
+        for (uint32_t i = 0; i < 256; i++)
+        {
+            reg[i] = res[i];
+        }
+    }
+
+#if 1
     klogc("\n");
-    klogc(" >>  i2c device register (address 0x%02X)\n\n", slaveAddr);
+    klogc(" >>  i2c device register (address 0x%02X)\n\n", address);
     klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
     for (uint32_t i = 0; i < 256; i++)
     {
@@ -864,7 +887,7 @@ uint32_t SimuI2C_ScanRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAdd
         {
             klogc("\n %02X:", i);
         }
-        klogc(" %02X", regData[i]);
+        klogc(" %02X", res[i]);
     }
     klogc("\n\n");
     klogc(NULL);
@@ -877,34 +900,34 @@ uint32_t SimuI2C_ScanRegs( SimuI2C_InitTypeDef *pSimuI2c, const uint8_t slaveAdd
 /**
  *  @brief  SimuI2C_ScanDeviceGPIO
  */
-uint32_t SimuI2C_ScanDeviceGPIO( const uint8_t sclpin, const uint8_t sdapin, uint8_t *devAddress )
+uint32_t SimuI2C_ScanDeviceGPIO( uint8_t sclpin, uint8_t sdapin, uint8_t *address )
 {
-    uint8_t devCount;
+    uint8_t device;
     SimuI2C_InitTypeDef i2c =
     {
         .PinSCL    = sclpin,
-        .PortSCL   = NRF_GPIO,
+        .PortSCL   = 0,
         .PinSDA    = sdapin,
-        .PortSDA   = NRF_GPIO,
+        .PortSDA   = 0,
         .Frequency = SIMUI2C_DEFAULT_FREQ
     };
     SimuI2C_Config(&i2c);
-    devCount = SimuI2C_ScanDevice(&i2c, devAddress);
+    device = SimuI2C_ScanDevice(&i2c, address);
 
 #if 0
     klogc("\n");
-    klogc(" >>  i2c device scanner (found %d)\n\n", devCount);
+    klogc(" >>  i2c device scanner (found %d)\n\n", device);
     klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
-    devCount = 0;
+    device = 0;
     for (uint32_t i = 0; i < 128; i++)
     {
         if (i % 16 == 0)
         {
-           klogc("\n %02X:", i);
+            klogc("\n %02X:", i);
         }
-        if (i == devAddress[devCount])
+        if (i == address[device])
         {
-            devCount++;
+            device++;
             klogc(" %02X", i);
         }
         else
@@ -916,29 +939,29 @@ uint32_t SimuI2C_ScanDeviceGPIO( const uint8_t sclpin, const uint8_t sdapin, uin
     klogc(NULL);
 #endif
 
-    return devCount;
+    return device;
 }
 
 /**
  *  @brief  SimuI2C_ScanRegsGPIO
  */
-uint32_t SimuI2C_ScanRegsGPIO( const uint8_t sclpin, const uint8_t sdapin, const uint8_t slaveAddr, uint8_t *regData )
+uint32_t SimuI2C_ScanRegsGPIO( uint8_t sclpin, uint8_t sdapin, uint8_t address, uint8_t *reg )
 {
     uint8_t status;
     SimuI2C_InitTypeDef i2c =
     {
         .PinSCL    = sclpin,
-        .PortSCL   = NRF_GPIO,
+        .PortSCL   = 0,
         .PinSDA    = sdapin,
-        .PortSDA   = NRF_GPIO,
+        .PortSDA   = 0,
         .Frequency = SIMUI2C_DEFAULT_FREQ
     };
     SimuI2C_Config(&i2c);
-    status = SimuI2C_ScanRegs(&i2c, slaveAddr, regData);
+    status = SimuI2C_ScanRegs(&i2c, address, reg);
 
 #if 0
     klogc("\n");
-    klogc(" >>  i2c device register (address 0x%02X)\n\n", slaveAddr);
+    klogc(" >>  i2c device register (address 0x%02X)\n\n", address);
     klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
     for (uint32_t i = 0; i < 256; i++)
     {
@@ -946,7 +969,7 @@ uint32_t SimuI2C_ScanRegsGPIO( const uint8_t sclpin, const uint8_t sdapin, const
         {
             klogc("\n %02X:", i);
         }
-        klogc(" %02X", regData[i]);
+        klogc(" %02X", reg[i]);
     }
     klogc("\n\n");
     klogc(NULL);
@@ -960,35 +983,35 @@ uint32_t SimuI2C_ScanRegsGPIO( const uint8_t sclpin, const uint8_t sdapin, const
  */
 void SimuI2C_ScanAllGPIO( const uint8_t sclpin, const uint8_t sdapin )
 {
-    uint8_t slaveAddr[128] = {0};
-    uint8_t regData[256] = {0};
-    uint8_t devCount;
+    uint8_t device;
+    uint8_t address[128] = {0};
+    uint8_t reg[256] = {0};
 
     SimuI2C_InitTypeDef i2c =
     {
         .PinSCL  = sclpin,
-        .PortSCL = NRF_GPIO,
+        .PortSCL = 0,
         .PinSDA  = sdapin,
-        .PortSDA = NRF_GPIO,
+        .PortSDA = 0,
         .Frequency = SIMUI2C_DEFAULT_FREQ
     };
     SimuI2C_Config(&i2c);
 
-    devCount = SimuI2C_ScanDevice(&i2c, slaveAddr);
+    device = SimuI2C_ScanDevice(&i2c, address);
 #if 0
     klogc("\n");
-    klogc(" >>  i2c device scanner (found %d)\n\n", devCount);
+    klogc(" >>  i2c device scanner (found %d)\n\n", device);
     klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
-    devCount = 0;
+    device = 0;
     for (uint32_t i = 0; i < 128; i++)
     {
         if (i % 16 == 0)
         {
-           klogc("\n %02X:", i);
+            klogc("\n %02X:", i);
         }
-        if (i == devAddress[devCount])
+        if (i == address[device])
         {
-            devCount++;
+            device++;
             klogc(" %02X", i);
         }
         else
@@ -999,12 +1022,12 @@ void SimuI2C_ScanAllGPIO( const uint8_t sclpin, const uint8_t sdapin )
     klogc("\n\n");
     klogc(NULL);
 #endif
-    for (uint32_t i = 0; i < devCount; i++)
+    for (uint32_t i = 0; i < device; i++)
     {
-        SimuI2C_ScanRegs(&i2c, slaveAddr[i], regData);
+        SimuI2C_ScanRegs(&i2c, address[i], reg);
 #if 0
         klogc("\n");
-        klogc(" >>  i2c device register (address 0x%02X)\n\n", slaveAddr);
+        klogc(" >>  i2c device register (address 0x%02X)\n\n", address[i]);
         klogc("      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
         for (uint32_t i = 0; i < 256; i++)
         {
@@ -1012,7 +1035,7 @@ void SimuI2C_ScanAllGPIO( const uint8_t sclpin, const uint8_t sdapin )
             {
                 klogc("\n %02X:", i);
             }
-            klogc(" %02X", regData[i]);
+            klogc(" %02X", reg[i]);
         }
         klogc("\n\n");
         klogc(NULL);
